@@ -21,7 +21,9 @@ class Robot():
   
   __track_width = 15.4
   
-  __wheel_length = __wheel_diameter * math.pi
+  __wheel_length = __wheel_diameter * math.pi
+ 
+  __gyro_callback = lambda x: None
   
   left_motor_on = brick.motor(__left_motor).setPower
   
@@ -32,8 +34,9 @@ class Robot():
   right_motor_off = brick.motor(__right_motor).powerOff
  
   
-  def __init_(self):
-#        brick.setCalibrationValues([0, 0, 0, 7824, 0, 4025])
+  def __init__(self, gyro_callback):
+    self.__gyro_callback = gyro_callback
+#    brick.setCalibrationValues([0, 0, 0, 7824, 0, 4025])
 
     
 #    brick.setCalibrationValues([-30, -26, -67, -76, 180, 4025])
@@ -98,8 +101,10 @@ class Robot():
     If v < 0, then robot rotate counterclockwise
     alpha - angle at radian
   """
-  def rotate(self, v, alpha):
-    assert(v != 0)
+  def rotate(self, alpha, v=100):
+    assert(v != 0)
+    if alpha < 0:
+      v = -v
     r = self.__track_width / 2
     limit = r * alpha / self.__wheel_length * self.__calls_per_rotate
     
@@ -107,33 +112,32 @@ class Robot():
     self.right_motor_on(v)
     
     brick.encoder(self.__left_encoder).reset() 
-    while abs(brick.encoder(self.__left_encoder).readRawData()) < limit:
+    while abs(brick.encoder(self.__left_encoder).readRawData()) < abs(limit):
       script.wait(10)
     
     self.left_motor_off()
     self.right_motor_off()
   
-  def rotate_gyroscope(self, v, alpha):
+  def rotate_gyroscope(self, alpha, v=100):
+   
+    initial = self.__gyro_callback()
+    target = alpha * 360 / 2 / math.pi
+    sgn = 1 if target < initial else -1
     
-    initial = brick.gyroscope().read()[-1]
-    target = alpha * 360 / 2 / math.pi * 1000
-    sgn = 1 if target > initial else -1
-    
-    self.left_motor_on(sgn * v)
-    self.right_motor_on(-sgn * v)
+    self.left_motor_on(-sgn * v)
+    self.right_motor_on(sgn * v)
      
-    while abs(brick.gyroscope().read()[-1] - initial) < target:
-      print(abs(brick.gyroscope().read()[-1] - initial),  target)
+    while abs(self.__gyro_callback() - initial) < abs(target):
+      print(initial, target, self.__gyro_callback(), (self.__gyro_callback() - initial))
       script.wait(10)
     
     self.left_motor_off()
     self.right_motor_off()
   
-  def run_using_gyroscope(self, gyroCallback, v, s):
+  def run_using_gyroscope(self, s, v=100):
     limit = s / self.__wheel_length * self.__calls_per_rotate
-    #initial = brick.gyroscope().read()[-1]
-    initial = gyroCallback()
-    script.wait(10)
+    initial = self.__gyro_callback()
+#    script.wait(10)
     
     self.left_motor_on(v)
     self.right_motor_on(v)
@@ -141,7 +145,7 @@ class Robot():
     brick.encoder(self.__left_encoder).reset() 
     while abs(brick.encoder(self.__left_encoder).read()) < limit:
 #      current_angle = brick.gyroscope().read()[-1]
-      current_angle = gyroCallback()
+      current_angle = self.__gyro_callback()
       d_angle = (current_angle - initial)
       
       self.left_motor_on(v + d_angle)
@@ -177,8 +181,10 @@ class Robot():
       
 #      print(x, y)
       brick.display().drawPoint(int(x), int(y))
-    brick.display().redraw()
-    script.wait(50000)
+    brick.display().redraw()
+#    return
+    script.wait(1000)
+    return
     
     
     
@@ -193,9 +199,10 @@ class Program():
   __n = 0
   
   def __init__(self):
-    self.robot = Robot()
+    self.robot = Robot(self.get_angle_val)
     __initial_angle = brick.gyroscope().read()[-1] / 1000
-    __last_angle = __initial_angle
+    __last_angle = __initial_angle
+    
 
   def angle_val(self):
     current_angle = brick.gyroscope().read()[-1]
@@ -214,32 +221,19 @@ class Program():
     current_angle += self.__n * 360
     print(current_angle)
 
-  def get_angle_val(self):
+  def get_angle_val(self):
+    self.angle_val()
     current_angle = self.__last_angle
-    current_angle += self.__n * 360
+    current_angle += self.__n * 360
     return current_angle
 
     
     
-  def execMain(self):
-#    brick.gyroscope().calibrate(100)
-#    script.wait(100)
-#    print(brick.gyroscope().getCalibrationValues())
-    
-#    tim = script.timer(10);
-#    tim.timeout.connect(self.angle_val)
-    
-#    tim_print = script.timer(500);
-#    tim_print.timeout.connect(self.print_angle_val);
-    
-#    self.robot.run_using_gyroscope(self.get_angle_val, 90, 500)
-#    self.robot.run(90, 500)
-#    script.wait(60000)
-    self.robot.test_lidar()
-    
-#    tim.stop()
-#    tim_print.stop()
-
+  def execMain(self):    
+    self.robot.calibrate_gyroscope(1)
+    self.robot.run_using_gyroscope(700)
+#    self.robot.rotate_gyroscope(-4*3.14, 50)
+    script.wait(100000)
     brick.stop()
     return
 
