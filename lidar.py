@@ -1,7 +1,16 @@
 import sys
 import time
 import random
-import math
+import math
+
+
+class Position():
+  def __init__(self, x=0, y=0, theta=0):
+    self.x = x
+    self.y = y
+    self.theta = theta
+    
+  
 
 class Robot():
   __infrared_port = "A1"
@@ -24,6 +33,10 @@ class Robot():
   __wheel_length = __wheel_diameter * math.pi
  
   __gyro_callback = lambda x: None
+  
+  __position = Position()
+  
+  __points_cloud = []
   
   left_motor_on = brick.motor(__left_motor).setPower
   
@@ -37,9 +50,6 @@ class Robot():
   def __init__(self, gyro_callback):
     self.__gyro_callback = gyro_callback
 #    brick.setCalibrationValues([0, 0, 0, 7824, 0, 4025])
-
-    
-#    brick.setCalibrationValues([-30, -26, -67, -76, 180, 4025])
     pass
     
     
@@ -122,13 +132,13 @@ class Robot():
    
     initial = self.__gyro_callback()
     target = alpha * 360 / 2 / math.pi
-    sgn = 1 if target < initial else -1
+    sgn = 1 if target < 0 else -1
     
     self.left_motor_on(-sgn * v)
     self.right_motor_on(sgn * v)
      
     while abs(self.__gyro_callback() - initial) < abs(target):
-      print(initial, target, self.__gyro_callback(), (self.__gyro_callback() - initial))
+#      print(initial, target, self.__gyro_callback(), (self.__gyro_callback() - initial))
       script.wait(10)
     
     self.left_motor_off()
@@ -137,14 +147,12 @@ class Robot():
   def run_using_gyroscope(self, s, v=100):
     limit = s / self.__wheel_length * self.__calls_per_rotate
     initial = self.__gyro_callback()
-#    script.wait(10)
     
     self.left_motor_on(v)
     self.right_motor_on(v)
     
     brick.encoder(self.__left_encoder).reset() 
     while abs(brick.encoder(self.__left_encoder).read()) < limit:
-#      current_angle = brick.gyroscope().read()[-1]
       current_angle = self.__gyro_callback()
       d_angle = (current_angle - initial)
       
@@ -177,16 +185,61 @@ class Robot():
       
       x = (x1 / 2) + 100
       y = (y1 / 2) + 100
-#      print(phi, dist, x1, y1)
-      
-#      print(x, y)
       brick.display().drawPoint(int(x), int(y))
+    brick.display().redraw()
+    script.wait(4000)
+    return
+  
+  def lidar_measure(self):
+    script.wait(100)
+    vec = brick.lidar().read()
+    rad = 180 / math.pi
+    pos = self.__position
+    
+    for i in range(0, 360):
+      phi = i / rad - pos.theta
+      dist = vec[i]
+      if dist == 0:
+        continue
+      x1 = dist * math.cos(phi) + pos.x
+      y1 = dist * math.sin(phi) - pos.y
+            
+      self.__points_cloud.append((x1, y1))
+ 
+ 
+  def draw_points(self):
+    brick.display().clear()
+    
+    for point in self.__points_cloud:
+      x = (point[0] / 6) + 50
+      y = (point[1] / 6) + 50
+      brick.display().drawPoint(int(x), int(y))
+    
     brick.display().redraw()
-#    return
-    script.wait(1000)
-    return
+    script.wait(1)
+    
+    
+  
+  def set_absolute_direction(self, target):
+    source = self.__gyro_callback()
+    source = -source / 360 * 2 * math.pi    
+    theta = math.atan2(math.sin(target-source), math.cos(target-source))
+    self.rotate_gyroscope(theta, 50) 
+    self.__position.theta = target
+    
     
-    
+  def goto(self, new_position: Position):
+    angle = math.atan2(new_position.y - self.__position.y, new_position.x - self.__position.x,)
+    self.set_absolute_direction(angle)
+    self.__position.theta = angle
+    dist = ((new_position.x - self.__position.x)**2 +  (new_position.y - self.__position.y)**2)**(1/2)
+    self.run_using_gyroscope(dist)
+    if new_position.theta != None:
+      self.set_absolute_direction(new_position.theta)
+      self.__position = new_position
+    else:
+      self.__position.x = new_position.x
+      self.__position.y = new_position.y
     
 
 
@@ -199,7 +252,7 @@ class Program():
   __n = 0
   
   def __init__(self):
-    self.robot = Robot(self.get_angle_val)
+    self.robot = Robot(self.get_angle_val_degrees)
     __initial_angle = brick.gyroscope().read()[-1] / 1000
     __last_angle = __initial_angle
     
@@ -216,12 +269,12 @@ class Program():
       self.__n -= 1"""
     self.__last_angle = current_angle
 
-  def print_angle_val(self):
+  def print_angle_val_degrees(self):
     current_angle = self.__last_angle
     current_angle += self.__n * 360
     print(current_angle)
 
-  def get_angle_val(self):
+  def get_angle_val_degrees(self):
     self.angle_val()
     current_angle = self.__last_angle
     current_angle += self.__n * 360
@@ -231,9 +284,56 @@ class Program():
     
   def execMain(self):    
     self.robot.calibrate_gyroscope(1)
-    self.robot.run_using_gyroscope(700)
+#    self.robot.run_using_gyroscope(700)
 #    self.robot.rotate_gyroscope(-4*3.14, 50)
-    script.wait(100000)
+
+#    self.robot.test_lidar()
+    self.robot.lidar_measure()
+    self.robot.draw_points()
+    
+    self.robot.goto(Position(100, 50, None))
+    self.robot.lidar_measure()
+    self.robot.draw_points()
+#    self.robot.test_lidar()
+    
+    self.robot.goto(Position(700, -70, None))
+    self.robot.lidar_measure()
+    self.robot.draw_points()
+#    self.robot.test_lidar()
+    
+    self.robot.goto(Position(0, -0, 0))
+    self.robot.lidar_measure()
+    self.robot.draw_points()
+#    self.robot.test_lidar()
+    
+#    self.robot.set_absolute_direction(math.pi/2)
+#    script.wait(500)
+#    self.robot.set_absolute_direction(math.pi)
+#    script.wait(500)
+#    self.robot.set_absolute_direction(3*math.pi/2)
+#    script.wait(500)
+#    self.robot.set_absolute_direction(2 * math.pi)
+#    script.wait(500)
+    
+#    self.robot.set_absolute_direction(2 * math.pi + math.pi / 4)
+#    script.wait(500)
+    
+#    self.robot.set_absolute_direction(-math.pi / 4)
+#    script.wait(500)
+    
+#    self.robot.set_absolute_direction(5  * math.pi / 4)
+#    script.wait(500)
+    
+#    self.robot.set_absolute_direction(3 * math.pi / 4)
+#    script.wait(500)
+    
+#    self.robot.set_absolute_direction(10 * math.pi / 2)
+#    script.wait(500)
+    
+    
+    
+    
+#    script.wait(100000)
     brick.stop()
     return
 
