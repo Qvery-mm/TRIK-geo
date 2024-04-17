@@ -1,5 +1,5 @@
 import cv2
-import panorama
+from local import panorama
 
 camera = cv2.VideoCapture(0)
 ret, pano = camera.read()
