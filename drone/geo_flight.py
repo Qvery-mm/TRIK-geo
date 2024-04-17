@@ -3,6 +3,7 @@ from math import pi
 import time
 import cv2
 import threading
+import sys
 
 CLOCKWISE = 1
 COUNTER_CLOCKWISE = -1
@@ -11,7 +12,7 @@ COUNTER_CLOCKWISE = -1
 class CameraService():
 
     # TODO передать ресурсы камеры
-    def __init__(self):
+    def __init__(self, working_dir):
         self.camera = cv2.VideoCapture(0)
 
     def capture(self, event: threading.Event):
@@ -20,7 +21,7 @@ class CameraService():
             # TODO something useful
             print("tick")
             ret, frame = self.camera.read()
-            cv2.imwrite(f'/home/ubuntu/frames/frame{i}.jpg', frame)
+            cv2.imwrite(f'{working_dir}/frames/frame{i}.jpg', frame)
             i += 1
             time.sleep(1.0)
 
@@ -31,7 +32,8 @@ class CameraService():
 
 class Program():
 
-    def __init__(self):
+    def __init__(self, working_dir):
+        print(working_dir)
         self.drone = Pioneer(connection_method='serial', device='/dev/ttyS0', baud=57600, logger=True)
         self.home = [0, 0, 0]
 
@@ -128,7 +130,8 @@ class Program():
             self.drone.go_to_local_point(0, 2*i*l + 2 * l, z, 0)
 
 if __name__ == '__main__':
-    program = Program()
+    working_dir = sys.argv[1]
+    program = Program(working_dir)
     program.start()
 
 

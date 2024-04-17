@@ -1,2 +1,4 @@
+export working_dir='/home/pi/aleks'
+
 cd aleks
-python simple.py
+python3 geo_flight.py $working_dir
