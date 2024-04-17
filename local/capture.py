@@ -1,17 +1,25 @@
 import cv2
-from local import panorama
+import panorama
+import os
 
-camera = cv2.VideoCapture(0)
-ret, pano = camera.read()
-for i in range(200):
+# camera = cv2.VideoCapture(0)
+# ret, pano = camera.read()
+
+path = "C:\\Users\\aleks\\PycharmProjects\\TRIK-geo\\data\\frames"
+fname = os.path.join(path, f"frame{0}.jpg")
+pano = cv2.imread(fname)
+for i in range(6, 21):
     print(i)
     try:
-        ret, frame = camera.read()
+        fname = os.path.join(path, f"frame{i}.jpg")
+        frame = cv2.imread(fname)
         new = panorama.makePano(pano, frame)
-        cv2.imshow("out", new)
+
         pano = new
     except Exception as e:
         print(e)
         print("Skipping frame")
-    cv2.waitKey(1)
-del(camera)
+    # cv2.waitKey(500)
+cv2.imshow("out", pano)
+# cv2.imwrite("C:\\Users\\aleks\\Documents\\spbu\\TRIK\\TRIK-geo\\pano2.jpg", pano)
+cv2.waitKey(5000)
