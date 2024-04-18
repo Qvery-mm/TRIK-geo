@@ -17,7 +17,7 @@ pscp -pw $pi_password drone\geo_flight.py $pi_user@${pi_ip}:${working_dir_pi}
 plink -ssh $pi_user@$pi_ip -pw $pi_password -m $working_dir_windows\drone\run_python_pi.sh
 
 # download frams to local machine
-# rm $working_dir_windows\data\frames\*
+rm $working_dir_windows\data\frames\*
 pscp -pw $pi_password $pi_user@${pi_ip}:${working_dir_pi}/aleks/frames/* $working_dir_windows\data\frames
 
 # make pano
