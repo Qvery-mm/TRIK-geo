@@ -14,6 +14,7 @@ class CameraService():
     # TODO передать ресурсы камеры
     def __init__(self, working_dir):
         self.camera = cv2.VideoCapture(0)
+        self.working_dir = working_dir
 
     def capture(self, event: threading.Event):
         i = 0
@@ -21,7 +22,7 @@ class CameraService():
             # TODO something useful
             print("tick")
             ret, frame = self.camera.read()
-            cv2.imwrite(f'{working_dir}/frames/frame{i}.jpg', frame)
+            cv2.imwrite(f'{self.working_dir}/frames/frame{i}.jpg', frame)
             i += 1
             time.sleep(1.0)
 
@@ -33,18 +34,18 @@ class CameraService():
 class Program():
 
     def __init__(self, working_dir):
-        print(working_dir)
+        self.working_dir = working_dir
         self.drone = Pioneer(connection_method='serial', device='/dev/ttyS0', baud=57600, logger=True)
         self.home = [0, 0, 0]
 
     def start(self):
         print("Starting flight!")
         # включение светодиодов на плате автопилота (8-бит на канал)
-        self.drone.led_control(r=0, g=0, b=220)
+        # self.drone.led_control(r=0, g=0, b=220)
 
         # включение двигателей перед полётом
         self.drone.arm()
-        time.sleep(1.0)
+        time.sleep(0.7)
 
         # взлёт
         self.drone.takeoff()
@@ -56,7 +57,7 @@ class Program():
 
         # Включаем запись и передачу
         # TODO передать ресурсы камеры
-        cameraService = CameraService()
+        cameraService = CameraService(self.working_dir)
         event = threading.Event()
         cameraThread = threading.Thread(target=cameraService.capture, args=(event,))
         cameraThread.start()
