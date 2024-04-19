@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 from sift_matcher import get_bounding_box
+from scipy.ndimage.filters import gaussian_filter
+
 
 BOX_LEN_IN_PX = 50
 
@@ -18,18 +21,25 @@ box2_bound = get_bounding_box(box2, pano)
 toolbox_bound = get_bounding_box(tools, pano)
 
 
-# Draw bounding box
+# Draw bounding box on original image
 img = cv2.polylines(pano, [finish_bound], True, (0,255,0),3, cv2.LINE_AA)
 img = cv2.polylines(img, [box1_bound], True, (0,0,255),3, cv2.LINE_AA)
 img = cv2.polylines(img, [box2_bound], True, (0,0,255),3, cv2.LINE_AA)
 img = cv2.polylines(img, [toolbox_bound], True, (0,0,255),3, cv2.LINE_AA)
 
+# draw obsacles on map
+black_map = np.zeros(pano.shape)
+black_map = cv2.polylines(black_map, [box1_bound], True, (255, 255, 255), 5, cv2.LINE_AA)
+black_map = cv2.polylines(black_map, [box2_bound], True, (255, 255, 255), 5, cv2.LINE_AA)
+black_map = cv2.polylines(black_map, [toolbox_bound], True, (255, 255, 255), 5, cv2.LINE_AA)
 
-# ищем центр финиша
+
+# ищем центр финиша и рисуем его на оригинальном изображении
 bound = finish_bound
 center_x = np.sum([bound[0][0][0], bound[1][0][0], bound[2][0][0], bound[3][0][0]]) // 4
 center_y = np.sum([bound[0][0][1], bound[1][0][1], bound[2][0][1], bound[3][0][1]]) // 4
-print(center_x, center_y)
+img = cv2.circle(img, (center_x, center_y), 5, (0, 255, 0), 4)
+
 
 # масштабируем изображение до 1см/пиксель
 p1 = toolbox_bound[0][0]
@@ -45,16 +55,87 @@ l2 = np.linalg.norm(v2)
 l3 = np.linalg.norm(v3)
 
 m = sorted([l1, l2, l3])[1]
-
 factor = BOX_LEN_IN_PX / m
+center_x *= factor
+center_y *= factor
 
-
-
-
-img = cv2.circle(img, (center_x, center_y), 5, (0, 255, 0), 4)
+box1_bound = (box1_bound * factor).astype('int')
+box2_bound = (box2_bound * factor).astype('int')
+toolbox_bound = (toolbox_bound * factor).astype('int')
 
 img = cv2.resize(img, (0, 0), fx=factor, fy=factor)
-cv2.imwrite("data/maps/bounding_boxes.jpg", img)
-cv2.imshow("result", img)
+black_map = cv2.resize(black_map, (0, 0), fx=factor, fy=factor)
 
-cv2.waitKey(5000)
+# при помощи гауссовского фильтра размываем границы препятствий
+obstacles = gaussian_filter(black_map, sigma=10)
+# для визуализации накладываем старые границы
+obstacles_copy = cv2.polylines(obstacles, [box1_bound], True, (255,0,0),2, cv2.LINE_AA)
+obstacles_copy = cv2.polylines(obstacles_copy, [box2_bound], True, (255,0,0),2, cv2.LINE_AA)
+obstacles_copy = cv2.polylines(obstacles_copy, [toolbox_bound], True, (255,0,0),2, cv2.LINE_AA)
+
+# выводим все на экран
+cv2.imshow("img", img)
+cv2.imshow("black_map", black_map)
+cv2.imshow("obstacles_copy", obstacles_copy)
+
+
+# строим карту методов отталикивающих потенциалов
+
+fig = plt.figure()
+axe = fig.add_subplot(121, projection='3d')
+
+dataForX = np.linspace(0, black_map.shape[1], black_map.shape[1])
+dataForY = np.linspace(0, black_map.shape[0], black_map.shape[0])
+
+dataForX, dataForY = np.meshgrid(dataForX, dataForY)
+
+# black_map = black_map[:, :, 0]
+obstacles = (obstacles[:, :, 0] + obstacles[:, :, 1] + obstacles[:, :, 2]) // 3
+Z = ((dataForX - center_x)**2 + (dataForY - center_y)**2) /1000 + obstacles
+Z = gaussian_filter(Z, sigma=10)
+
+surface = axe.plot_surface(dataForX, dataForY, Z, cmap='inferno', linewidth=0, antialiased=False)
+
+fig.colorbar(surface, shrink=0.7, aspect=10)
+
+axe.set_xlabel('X')
+axe.set_ylabel('Y')
+axe.set_zlabel('Z')
+
+axe.set_title('3D Surface Plot')
+
+gradients = np.gradient(Z)
+print(gradients[0].shape, gradients[1].shape)
+# start = [30, 30]
+# f_start = Z[30, 30]
+# end = [300, 300]
+# f_end = Z[300, 300]
+
+X_1 = [200]
+Y_1 = [30]
+Z_1 = [Z[30, 200]]
+
+for i in range(30):
+    last_x = X_1[-1]
+    last_y = Y_1[-1]
+    # grad = gradients[last_x, last_y]
+    alpha = 100
+    last_x -= int(gradients[1][last_y, last_x] * alpha)
+    last_y -= int(gradients[0][last_y, last_x] * alpha)
+    print(last_x, last_y)
+    X_1.append(last_x)
+    Y_1.append(last_y)
+    Z_1.append(Z[last_x, last_y])
+
+
+print("center: ", center_x, center_y)
+ax1 = fig.add_subplot(122, projection='3d')
+ax1.plot3D(X_1, Y_1, Z_1, color='black', linewidth=5)
+
+plt.show()
+
+
+
+# save all images
+cv2.imwrite("data/maps/bounding_boxes.jpg", img)
+cv2.imwrite("data/maps/black_map.jpg", black_map)
