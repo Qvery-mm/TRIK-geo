@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import pickle
 from sift_matcher import get_bounding_box
 from scipy.ndimage.filters import gaussian_filter
 
@@ -29,9 +30,9 @@ img = cv2.polylines(img, [toolbox_bound], True, (0,0,255),3, cv2.LINE_AA)
 
 # draw obsacles on map
 black_map = np.zeros(pano.shape)
-black_map = cv2.polylines(black_map, [box1_bound], True, (255, 255, 255), 5, cv2.LINE_AA)
-black_map = cv2.polylines(black_map, [box2_bound], True, (255, 255, 255), 5, cv2.LINE_AA)
-black_map = cv2.polylines(black_map, [toolbox_bound], True, (255, 255, 255), 5, cv2.LINE_AA)
+black_map = cv2.polylines(black_map, [box1_bound], True, (255, 255, 255), 1, cv2.LINE_AA)
+black_map = cv2.polylines(black_map, [box2_bound], True, (255, 255, 255), 1, cv2.LINE_AA)
+black_map = cv2.polylines(black_map, [toolbox_bound], True, (255, 255, 255), 1, cv2.LINE_AA)
 
 
 # ищем центр финиша и рисуем его на оригинальном изображении
@@ -139,3 +140,9 @@ plt.show()
 # save all images
 cv2.imwrite("data/maps/bounding_boxes.jpg", img)
 cv2.imwrite("data/maps/black_map.jpg", black_map)
+
+with open('data/maps/map.pickle', 'wb') as handle:
+    pickle.dump(black_map, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('data/maps/gradients.pickle', 'wb') as handle:
+    pickle.dump(gradients, handle, protocol=pickle.HIGHEST_PROTOCOL)
