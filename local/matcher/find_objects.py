@@ -112,9 +112,9 @@ print(gradients[0].shape, gradients[1].shape)
 # end = [300, 300]
 # f_end = Z[300, 300]
 
-X_1 = [200]
-Y_1 = [30]
-Z_1 = [Z[30, 200]]
+X_1 = [150]
+Y_1 = [120]
+Z_1 = [Z[120, 150]]
 
 for i in range(30):
     last_x = X_1[-1]
@@ -132,8 +132,14 @@ for i in range(30):
 print("center: ", center_x, center_y)
 ax1 = fig.add_subplot(122, projection='3d')
 ax1.plot3D(X_1, Y_1, Z_1, color='black', linewidth=5)
+# ax1.show()
 
+plt.figure()
+plt.imshow(Z, cmap='hot')
+plt.savefig("heatmap.png")
 plt.show()
+
+
 
 
 
@@ -146,3 +152,10 @@ with open('data/maps/map.pickle', 'wb') as handle:
 
 with open('data/maps/gradients.pickle', 'wb') as handle:
     pickle.dump(gradients, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('data/maps/gradients_lists.pickle', 'wb') as handle:
+    gradients_lists = [gradients[0].tolist(), gradients[1].tolist()]
+    pickle.dump(gradients_lists, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open('data/maps/bounds.pickle', 'wb') as handle:
+    pickle.dump([box1_bound, box2_bound, toolbox_bound], handle, protocol=pickle.HIGHEST_PROTOCOL)
